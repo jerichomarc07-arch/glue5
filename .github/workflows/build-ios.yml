@@ -1,0 +1,43 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install mise xcodegen
+          mise install
+
+      - name: Setup Game Files
+        run: |
+          mkdir -p game
+          # Dito ilalagay ang game.wasm mula sa secrets kung itinago mo
+          if [ -n "${{ secrets.GAME_WASM_BASE64 }}" ]; then
+            echo "${{ secrets.GAME_WASM_BASE64 }}" | base64 -d > game/game.wasm
+          fi
+
+      - name: Build iOS App
+        run: |
+          mise run setup
+          mise run ios:build
+
+      - name: Create IPA Package
+        run: |
+          mkdir -p Payload
+          cp -r target/ios/build/Build/Products/Release-iphoneos/glue5.app Payload/
+          zip -r glue5.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: glue5-ios-ipa
+          path: glue5.ipa
